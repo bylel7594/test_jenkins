@@ -1,0 +1,821 @@
+{
+  "name": "B2B Prospection Automatique - Freelance Dev/Ads",
+  "nodes": [
+    {
+      "id": "node-001",
+      "name": "Planification Quotidienne",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-5"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-002",
+      "name": "Paramètres de Recherche",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [220, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "secteurs",
+              "name": "secteurs",
+              "type": "array",
+              "value": "={{ [\"restaurant\", \"boulangerie\", \"salon de coiffure\", \"garage automobile\", \"agence immobilière\", \"cabinet dentaire\", \"pharmacie\", \"plombier\", \"électricien\", \"maçon\", \"architecte\", \"expert-comptable\"] }}"
+            },
+            {
+              "id": "villes",
+              "name": "villes",
+              "type": "array",
+              "value": "={{ [\"Paris\", \"Lyon\", \"Marseille\", \"Bordeaux\", \"Toulouse\", \"Nantes\", \"Lille\", \"Strasbourg\"] }}"
+            },
+            {
+              "id": "score_minimum",
+              "name": "score_minimum",
+              "type": "number",
+              "value": 4
+            },
+            {
+              "id": "max_results_par_recherche",
+              "name": "max_results_par_recherche",
+              "type": "number",
+              "value": 20
+            },
+            {
+              "id": "secteurs_prioritaires",
+              "name": "secteurs_prioritaires",
+              "type": "array",
+              "value": "={{ [\"restaurant\", \"boulangerie\", \"salon de coiffure\", \"garage automobile\"] }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "node-003",
+      "name": "Combinaisons Secteur x Ville",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const secteurs = $input.first().json.secteurs;\nconst villes = $input.first().json.villes;\nconst combinaisons = [];\n\nfor (const secteur of secteurs) {\n  for (const ville of villes) {\n    combinaisons.push({\n      json: {\n        secteur,\n        ville,\n        query: `${secteur} ${ville}`,\n        score_minimum: $input.first().json.score_minimum,\n        secteurs_prioritaires: $input.first().json.secteurs_prioritaires\n      }\n    });\n  }\n}\n\nreturn combinaisons;"
+      }
+    },
+    {
+      "id": "node-004",
+      "name": "Limiter - Éviter Surcharge API",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [660, 300],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      }
+    },
+    {
+      "id": "node-005",
+      "name": "Google Places - Recherche Entreprises",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://maps.googleapis.com/maps/api/place/textsearch/json",
+        "authentication": "none",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.query }}"
+            },
+            {
+              "name": "key",
+              "value": "={{ $credentials.googlePlacesApiKey }}"
+            },
+            {
+              "name": "language",
+              "value": "fr"
+            },
+            {
+              "name": "region",
+              "value": "fr"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000,
+          "retry": {
+            "enabled": true,
+            "maxTries": 3,
+            "waitBetweenTries": 2000
+          }
+        },
+        "onError": "continueRegularOutput"
+      },
+      "credentials": {
+        "googlePlacesApiKey": {
+          "id": "cred-google-places",
+          "name": "Google Places API"
+        }
+      }
+    },
+    {
+      "id": "node-006",
+      "name": "Délai Anti-Rate-Limit Google",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1100, 300],
+      "parameters": {
+        "resume": "timeInterval",
+        "unit": "seconds",
+        "value": 2
+      }
+    },
+    {
+      "id": "node-007",
+      "name": "Extraire et Normaliser Entreprises",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $input.first().json;\nconst results = data.results || [];\nconst searchParams = $('Combinaisons Secteur x Ville').first().json;\n\nif (!results.length) {\n  return [];\n}\n\nconst entreprises = results.slice(0, 20).map(place => {\n  const domainFromWebsite = place.website \n    ? place.website.replace(/^https?:\\/\\/(www\\.)?/, '').split('/')[0]\n    : null;\n\n  return {\n    json: {\n      place_id: place.place_id,\n      nom: place.name,\n      adresse: place.formatted_address,\n      ville: searchParams.ville,\n      secteur: searchParams.secteur,\n      secteurs_prioritaires: searchParams.secteurs_prioritaires,\n      score_minimum: searchParams.score_minimum,\n      telephone: place.formatted_phone_number || place.international_phone_number || null,\n      website: place.website || null,\n      domain: domainFromWebsite,\n      rating: place.rating || null,\n      user_ratings_total: place.user_ratings_total || 0,\n      types: place.types || [],\n      business_status: place.business_status || 'OPERATIONAL',\n      score: 0,\n      signaux: []\n    }\n  };\n}).filter(e => e.json.business_status === 'OPERATIONAL');\n\nreturn entreprises;"
+      }
+    },
+    {
+      "id": "node-008",
+      "name": "Détails Place (Website + Phone)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://maps.googleapis.com/maps/api/place/details/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "place_id",
+              "value": "={{ $json.place_id }}"
+            },
+            {
+              "name": "key",
+              "value": "={{ $credentials.googlePlacesApiKey }}"
+            },
+            {
+              "name": "fields",
+              "value": "website,formatted_phone_number,international_phone_number"
+            },
+            {
+              "name": "language",
+              "value": "fr"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        },
+        "onError": "continueRegularOutput"
+      },
+      "credentials": {
+        "googlePlacesApiKey": {
+          "id": "cred-google-places",
+          "name": "Google Places API"
+        }
+      }
+    },
+    {
+      "id": "node-009",
+      "name": "Fusionner Détails Place",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1760, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const base = $('Extraire et Normaliser Entreprises').first().json;\nconst details = $input.first().json;\nconst result = details.result || {};\n\nconst website = result.website || base.website || null;\nconst domainFromWebsite = website\n  ? website.replace(/^https?:\\/\\/(www\\.)?/, '').split('/')[0]\n  : null;\n\nreturn [{\n  json: {\n    ...base,\n    website: website,\n    domain: domainFromWebsite,\n    telephone: result.formatted_phone_number || result.international_phone_number || base.telephone\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-010",
+      "name": "A-t-il un Site Web ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1980, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-website",
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-011",
+      "name": "Score +3 - Pas de Site Web",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.3,
+      "position": [2200, 480],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "score",
+              "name": "score",
+              "type": "number",
+              "value": "={{ $json.score + 3 }}"
+            },
+            {
+              "id": "signaux",
+              "name": "signaux",
+              "type": "array",
+              "value": "={{ [...$json.signaux, '🔴 Pas de site web (+3)'] }}"
+            },
+            {
+              "id": "website_status",
+              "name": "website_status",
+              "type": "string",
+              "value": "ABSENT"
+            }
+          ]
+        },
+        "includeOtherFields": true
+      }
+    },
+    {
+      "id": "node-012",
+      "name": "Vérifier Site Web - HTTP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 120],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.website }}",
+        "options": {
+          "timeout": 10000,
+          "followRedirects": true,
+          "ignoreSSLIssues": false,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "fullResponse": true
+            }
+          }
+        },
+        "onError": "continueRegularOutput"
+      }
+    },
+    {
+      "id": "node-013",
+      "name": "Analyser Site Web",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 120],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const previous = $('Fusionner Détails Place').first().json;\nconst response = $input.first().json;\n\nlet score = previous.score;\nlet signaux = [...previous.signaux];\nlet website_status = 'OK';\nlet tech_detected = [];\nlet ssl_valid = false;\nlet has_google_ads = false;\n\n// Vérification du statut HTTP\nconst statusCode = response.statusCode || 0;\nif (statusCode === 0 || statusCode >= 500) {\n  score += 2;\n  signaux.push('🟠 Site web inaccessible/erreur (+2)');\n  website_status = 'ERROR';\n} else if (statusCode >= 400) {\n  score += 2;\n  signaux.push('🟠 Site web retourne erreur ' + statusCode + ' (+2)');\n  website_status = 'ERROR';\n} else {\n  website_status = 'OK';\n}\n\n// Vérification SSL\nconst url = previous.website || '';\nif (url.startsWith('https://')) {\n  ssl_valid = true;\n} else if (url.startsWith('http://')) {\n  score += 1;\n  signaux.push('🟡 Pas de SSL / HTTP seulement (+1)');\n  ssl_valid = false;\n}\n\n// Analyse du contenu pour détecter les technologies\nconst body = (response.data || '').toLowerCase();\n\n// Détection WordPress (site souvent vieux ou peu optimisé)\nif (body.includes('wp-content') || body.includes('wp-includes')) {\n  tech_detected.push('WordPress');\n}\n\n// Détection Wix/Jimdo/Weebly (constructeurs = faible perf potentielle)\nif (body.includes('wixsite.com') || body.includes('wix.com/')) {\n  tech_detected.push('Wix');\n  score += 1;\n  signaux.push('🟡 Site sur Wix (optimisation possible) (+1)');\n}\nif (body.includes('jimdo.com') || body.includes('jimdofree.com')) {\n  tech_detected.push('Jimdo');\n  score += 1;\n  signaux.push('🟡 Site sur Jimdo (+1)');\n}\n\n// Détection Google Ads (gtag ou adsbygoogle)\nif (body.includes('googletagmanager.com') || body.includes('gtag(') || body.includes('google_tag_manager')) {\n  tech_detected.push('Google Tag Manager');\n}\nif (body.includes('adsbygoogle') || body.includes('googlesyndication.com')) {\n  tech_detected.push('Google Ads Display');\n  has_google_ads = true;\n}\nif (body.includes('google_conversion') || body.includes('googleadservices.com')) {\n  tech_detected.push('Google Ads Conversion');\n  has_google_ads = true;\n}\n\n// Pas de Google Ads = opportunité\nif (!has_google_ads) {\n  score += 2;\n  signaux.push('🟢 Aucune campagne Google Ads détectée (+2)');\n} else {\n  signaux.push('ℹ️ Google Ads actif détecté (déjà client ou concurrent)');\n}\n\n// Site sans copyright récent = site potentiellement vieux\nconst yearMatch = body.match(/copyright[^\\d]*(20\\d{2})/i) || body.match(/©[^\\d]*(20\\d{2})/);\nif (yearMatch) {\n  const siteYear = parseInt(yearMatch[1]);\n  const currentYear = new Date().getFullYear();\n  if (currentYear - siteYear >= 4) {\n    score += 1;\n    signaux.push(`🟡 Site web ancien (${siteYear}) - refonte possible (+1)`);\n  }\n}\n\nreturn [{\n  json: {\n    ...previous,\n    score,\n    signaux,\n    website_status,\n    ssl_valid,\n    tech_detected,\n    has_google_ads\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-014",
+      "name": "Fusionner Résultats Site Web",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [2640, 300],
+      "parameters": {
+        "mode": "append",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-015",
+      "name": "Score Secteur Prioritaire",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2860, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $input.first().json;\nlet score = data.score || 0;\nlet signaux = [...(data.signaux || [])];\n\nconst secteursPrioritaires = data.secteurs_prioritaires || [];\nconst secteur = (data.secteur || '').toLowerCase();\n\nconst estPrioritaire = secteursPrioritaires.some(\n  s => secteur.includes(s.toLowerCase()) || s.toLowerCase().includes(secteur)\n);\n\nif (estPrioritaire) {\n  score += 2;\n  signaux.push(`🎯 Secteur prioritaire: ${data.secteur} (+2)`);\n}\n\nreturn [{ json: { ...data, score, signaux } }];"
+      }
+    },
+    {
+      "id": "node-016",
+      "name": "France Travail - Offres Emploi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3080, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "motsCles",
+              "value": "={{ $json.nom }}"
+            },
+            {
+              "name": "commune",
+              "value": "={{ $json.ville }}"
+            },
+            {
+              "name": "minCreationDate",
+              "value": "={{ new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0] }}"
+            },
+            {
+              "name": "range",
+              "value": "0-9"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        },
+        "onError": "continueRegularOutput"
+      },
+      "credentials": {
+        "oAuth2Api": {
+          "id": "cred-france-travail",
+          "name": "France Travail OAuth2"
+        }
+      }
+    },
+    {
+      "id": "node-017",
+      "name": "Analyser Offres Emploi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3300, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const previous = $('Score Secteur Prioritaire').first().json;\nconst ftData = $input.first().json;\n\nlet score = previous.score || 0;\nlet signaux = [...(previous.signaux || [])];\n\n// France Travail\nconst ftOffres = ftData.resultats || [];\nconst nbFT = ftOffres.length;\n\nif (nbFT > 0) {\n  score += 2;\n  signaux.push(`💼 ${nbFT} offre(s) France Travail récentes (+2)`);\n}\n\nreturn [{\n  json: {\n    ...previous,\n    score,\n    signaux,\n    offres_france_travail: nbFT\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-018",
+      "name": "Délai Anti-Rate-Limit FT",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [3520, 300],
+      "parameters": {
+        "resume": "timeInterval",
+        "unit": "seconds",
+        "value": 1
+      }
+    },
+    {
+      "id": "node-019",
+      "name": "Score Taille Entreprise (Estimation)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3740, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const data = $input.first().json;\nlet score = data.score || 0;\nlet signaux = [...(data.signaux || [])];\n\n// Estimation de taille via le nombre d'avis Google\n// Peu d'avis = petite structure locale = cible idéale\nconst nbAvis = data.user_ratings_total || 0;\n\nif (nbAvis < 50) {\n  score += 1;\n  signaux.push(`📊 Petite structure estimée (${nbAvis} avis Google) (+1)`);\n} else if (nbAvis > 500) {\n  // Grande entreprise = moins pertinent\n  score -= 1;\n  signaux.push(`📊 Structure potentiellement grande (${nbAvis} avis) (-1)`);\n}\n\nreturn [{ json: { ...data, score, signaux, estimation_nb_avis: nbAvis } }];"
+      }
+    },
+    {
+      "id": "node-020",
+      "name": "Filtrer Score Minimum",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [3960, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-score",
+              "leftValue": "={{ $json.score }}",
+              "rightValue": "={{ $json.score_minimum }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "node-021",
+      "name": "Hunter.io - Enrichissement Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4180, 300],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.hunter.io/v2/domain-search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "domain",
+              "value": "={{ $json.domain }}"
+            },
+            {
+              "name": "api_key",
+              "value": "={{ $credentials.hunterIoApiKey }}"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            },
+            {
+              "name": "type",
+              "value": "personal"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 10000
+        },
+        "onError": "continueRegularOutput"
+      },
+      "credentials": {
+        "hunterIoApiKey": {
+          "id": "cred-hunter-io",
+          "name": "Hunter.io API Key"
+        }
+      }
+    },
+    {
+      "id": "node-022",
+      "name": "Extraire Contact Décideur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4400, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const previous = $('Filtrer Score Minimum').first().json;\nconst hunterData = $input.first().json;\n\nlet contact_email = null;\nlet contact_nom = null;\nlet contact_prenom = null;\nlet contact_poste = null;\nlet email_confidence = 0;\n\nconst data = hunterData.data || {};\nconst emails = data.emails || [];\n\n// Rôles cibles en priorité\nconst rolesPrioritaires = [\n  'directeur', 'dirigeant', 'gérant', 'president', 'ceo', 'coo',\n  'responsable', 'manager', 'marketing', 'communication', 'rh', 'recrutement',\n  'fondateur', 'founder', 'associé', 'partner'\n];\n\nlet meilleurContact = null;\nlet meilleurScore = -1;\n\nfor (const email of emails) {\n  const position = (email.position || '').toLowerCase();\n  let positionScore = 0;\n  \n  for (const role of rolesPrioritaires) {\n    if (position.includes(role)) {\n      positionScore = rolesPrioritaires.indexOf(role);\n      break;\n    }\n  }\n  \n  // Favoriser les emails avec haute confiance\n  const confidenceBonus = (email.confidence || 0) / 20;\n  const totalScore = (10 - positionScore) + confidenceBonus;\n  \n  if (totalScore > meilleurScore) {\n    meilleurScore = totalScore;\n    meilleurContact = email;\n  }\n}\n\nif (meilleurContact) {\n  contact_email = meilleurContact.value;\n  contact_nom = meilleurContact.last_name;\n  contact_prenom = meilleurContact.first_name;\n  contact_poste = meilleurContact.position;\n  email_confidence = meilleurContact.confidence || 0;\n}\n\n// Pattern d'email générique si aucun contact\nconst domain_pattern = data.pattern ? `${data.pattern}@${data.domain}` : null;\n\nreturn [{\n  json: {\n    ...previous,\n    contact_email,\n    contact_nom,\n    contact_prenom,\n    contact_poste,\n    email_confidence,\n    domain_pattern,\n    total_emails_trouves: emails.length\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-023",
+      "name": "Délai Anti-Rate-Limit Hunter",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [4620, 300],
+      "parameters": {
+        "resume": "timeInterval",
+        "unit": "seconds",
+        "value": 2
+      }
+    },
+    {
+      "id": "node-024",
+      "name": "Préparer Ligne Google Sheets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [4840, 300],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const d = $input.first().json;\nconst now = new Date().toLocaleDateString('fr-FR', { \n  day: '2-digit', month: '2-digit', year: 'numeric',\n  hour: '2-digit', minute: '2-digit'\n});\n\nconst signaux_str = (d.signaux || []).join(' | ');\nconst tech_str = (d.tech_detected || []).join(', ');\n\n// Niveau de priorité\nlet priorite;\nif (d.score >= 8) priorite = '🔥 TRÈS HAUTE';\nelse if (d.score >= 6) priorite = '⚡ HAUTE';\nelse if (d.score >= 4) priorite = '✅ MOYENNE';\nelse priorite = '⬇️ BASSE';\n\nreturn [{\n  json: {\n    // Colonnes Google Sheets\n    date_detection: now,\n    priorite: priorite,\n    score: d.score,\n    nom_entreprise: d.nom || '',\n    secteur: d.secteur || '',\n    ville: d.ville || '',\n    telephone: d.telephone || '',\n    website: d.website || 'ABSENT',\n    website_status: d.website_status || '',\n    ssl: d.ssl_valid ? 'Oui' : 'Non',\n    technologies: tech_str,\n    google_ads: d.has_google_ads ? 'Oui' : 'Non',\n    offres_emploi: d.offres_france_travail || 0,\n    contact_prenom: d.contact_prenom || '',\n    contact_nom: d.contact_nom || '',\n    contact_email: d.contact_email || d.domain_pattern || '',\n    contact_poste: d.contact_poste || '',\n    email_confiance: d.email_confidence ? `${d.email_confidence}%` : '',\n    signaux_detectes: signaux_str,\n    statut: 'À contacter',\n    notes: '',\n    // Données brutes pour filtrage ultérieur\n    _raw: {\n      place_id: d.place_id,\n      domain: d.domain,\n      score: d.score\n    }\n  }\n}];"
+      }
+    },
+    {
+      "id": "node-025",
+      "name": "Vérifier Doublon Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [5060, 300],
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Prospects",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "nom_entreprise",
+              "lookupValue": "={{ $json.nom_entreprise }}"
+            },
+            {
+              "lookupColumn": "ville",
+              "lookupValue": "={{ $json.ville }}"
+            }
+          ]
+        },
+        "options": {
+          "returnAllMatches": false
+        },
+        "onError": "continueRegularOutput"
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cred-google-sheets",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "id": "node-026",
+      "name": "Déjà dans la liste ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [5280, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false
+          },
+          "conditions": [
+            {
+              "id": "cond-doublon",
+              "leftValue": "={{ $json.nom_entreprise }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-027",
+      "name": "Ajouter dans Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [5500, 180],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $env.GOOGLE_SHEET_ID }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Prospects",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "date_detection": "={{ $json.date_detection }}",
+            "priorite": "={{ $json.priorite }}",
+            "score": "={{ $json.score }}",
+            "nom_entreprise": "={{ $json.nom_entreprise }}",
+            "secteur": "={{ $json.secteur }}",
+            "ville": "={{ $json.ville }}",
+            "telephone": "={{ $json.telephone }}",
+            "website": "={{ $json.website }}",
+            "website_status": "={{ $json.website_status }}",
+            "ssl": "={{ $json.ssl }}",
+            "technologies": "={{ $json.technologies }}",
+            "google_ads": "={{ $json.google_ads }}",
+            "offres_emploi": "={{ $json.offres_emploi }}",
+            "contact_prenom": "={{ $json.contact_prenom }}",
+            "contact_nom": "={{ $json.contact_nom }}",
+            "contact_email": "={{ $json.contact_email }}",
+            "contact_poste": "={{ $json.contact_poste }}",
+            "email_confiance": "={{ $json.email_confiance }}",
+            "signaux_detectes": "={{ $json.signaux_detectes }}",
+            "statut": "={{ $json.statut }}",
+            "notes": ""
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cred-google-sheets",
+          "name": "Google Sheets"
+        }
+      }
+    },
+    {
+      "id": "node-028",
+      "name": "Score Élevé ? (≥ 7)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [5720, 180],
+      "parameters": {
+        "conditions": {
+          "options": {},
+          "conditions": [
+            {
+              "id": "cond-high-score",
+              "leftValue": "={{ $('Préparer Ligne Google Sheets').first().json.score }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "node-029",
+      "name": "Notification Telegram - Prospect Chaud",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [5940, 60],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "🔥 *NOUVEAU PROSPECT CHAUD*\n\n🏢 *{{ $('Préparer Ligne Google Sheets').first().json.nom_entreprise }}*\n📍 {{ $('Préparer Ligne Google Sheets').first().json.ville }} — {{ $('Préparer Ligne Google Sheets').first().json.secteur }}\n📊 *Score: {{ $('Préparer Ligne Google Sheets').first().json.score }}/12* — {{ $('Préparer Ligne Google Sheets').first().json.priorite }}\n\n📞 {{ $('Préparer Ligne Google Sheets').first().json.telephone || 'N/A' }}\n🌐 {{ $('Préparer Ligne Google Sheets').first().json.website }}\n\n👤 Contact: {{ $('Préparer Ligne Google Sheets').first().json.contact_prenom }} {{ $('Préparer Ligne Google Sheets').first().json.contact_nom }}\n📧 {{ $('Préparer Ligne Google Sheets').first().json.contact_email || 'Non trouvé' }}\n💼 {{ $('Préparer Ligne Google Sheets').first().json.contact_poste || '' }}\n\n🎯 *Signaux:*\n{{ $('Préparer Ligne Google Sheets').first().json.signaux_detectes.replace(' | ', '\\n') }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "node-030",
+      "name": "Récap Fin de Cycle",
+      "type": "n8n-nodes-base.aggregator",
+      "typeVersion": 1,
+      "position": [6160, 300],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      }
+    },
+    {
+      "id": "node-031",
+      "name": "Résumé Quotidien - Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [6380, 300],
+      "parameters": {
+        "chatId": "={{ $env.TELEGRAM_CHAT_ID }}",
+        "text": "📋 *Résumé Prospection du {{ new Date().toLocaleDateString('fr-FR') }}*\n\n✅ Cycle terminé — Vérifiez votre Google Sheets pour les nouveaux prospects détectés.\n\n🔗 [Ouvrir le tableau de bord](https://docs.google.com/spreadsheets/d/{{ $env.GOOGLE_SHEET_ID }})",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "credentials": {
+        "telegramApi": {
+          "id": "cred-telegram",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Planification Quotidienne": {
+      "main": [[{ "node": "Paramètres de Recherche", "type": "main", "index": 0 }]]
+    },
+    "Paramètres de Recherche": {
+      "main": [[{ "node": "Combinaisons Secteur x Ville", "type": "main", "index": 0 }]]
+    },
+    "Combinaisons Secteur x Ville": {
+      "main": [[{ "node": "Limiter - Éviter Surcharge API", "type": "main", "index": 0 }]]
+    },
+    "Limiter - Éviter Surcharge API": {
+      "main": [[{ "node": "Google Places - Recherche Entreprises", "type": "main", "index": 0 }]]
+    },
+    "Google Places - Recherche Entreprises": {
+      "main": [[{ "node": "Délai Anti-Rate-Limit Google", "type": "main", "index": 0 }]]
+    },
+    "Délai Anti-Rate-Limit Google": {
+      "main": [[{ "node": "Extraire et Normaliser Entreprises", "type": "main", "index": 0 }]]
+    },
+    "Extraire et Normaliser Entreprises": {
+      "main": [[{ "node": "Détails Place (Website + Phone)", "type": "main", "index": 0 }]]
+    },
+    "Détails Place (Website + Phone)": {
+      "main": [[{ "node": "Fusionner Détails Place", "type": "main", "index": 0 }]]
+    },
+    "Fusionner Détails Place": {
+      "main": [[{ "node": "A-t-il un Site Web ?", "type": "main", "index": 0 }]]
+    },
+    "A-t-il un Site Web ?": {
+      "main": [
+        [{ "node": "Vérifier Site Web - HTTP", "type": "main", "index": 0 }],
+        [{ "node": "Score +3 - Pas de Site Web", "type": "main", "index": 0 }]
+      ]
+    },
+    "Vérifier Site Web - HTTP": {
+      "main": [[{ "node": "Analyser Site Web", "type": "main", "index": 0 }]]
+    },
+    "Analyser Site Web": {
+      "main": [[{ "node": "Fusionner Résultats Site Web", "type": "main", "index": 0 }]]
+    },
+    "Score +3 - Pas de Site Web": {
+      "main": [[{ "node": "Fusionner Résultats Site Web", "type": "main", "index": 1 }]]
+    },
+    "Fusionner Résultats Site Web": {
+      "main": [[{ "node": "Score Secteur Prioritaire", "type": "main", "index": 0 }]]
+    },
+    "Score Secteur Prioritaire": {
+      "main": [[{ "node": "France Travail - Offres Emploi", "type": "main", "index": 0 }]]
+    },
+    "France Travail - Offres Emploi": {
+      "main": [[{ "node": "Analyser Offres Emploi", "type": "main", "index": 0 }]]
+    },
+    "Analyser Offres Emploi": {
+      "main": [[{ "node": "Délai Anti-Rate-Limit FT", "type": "main", "index": 0 }]]
+    },
+    "Délai Anti-Rate-Limit FT": {
+      "main": [[{ "node": "Score Taille Entreprise (Estimation)", "type": "main", "index": 0 }]]
+    },
+    "Score Taille Entreprise (Estimation)": {
+      "main": [[{ "node": "Filtrer Score Minimum", "type": "main", "index": 0 }]]
+    },
+    "Filtrer Score Minimum": {
+      "main": [[{ "node": "Hunter.io - Enrichissement Contact", "type": "main", "index": 0 }]]
+    },
+    "Hunter.io - Enrichissement Contact": {
+      "main": [[{ "node": "Extraire Contact Décideur", "type": "main", "index": 0 }]]
+    },
+    "Extraire Contact Décideur": {
+      "main": [[{ "node": "Délai Anti-Rate-Limit Hunter", "type": "main", "index": 0 }]]
+    },
+    "Délai Anti-Rate-Limit Hunter": {
+      "main": [[{ "node": "Préparer Ligne Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Préparer Ligne Google Sheets": {
+      "main": [[{ "node": "Vérifier Doublon Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Vérifier Doublon Google Sheets": {
+      "main": [[{ "node": "Déjà dans la liste ?", "type": "main", "index": 0 }]]
+    },
+    "Déjà dans la liste ?": {
+      "main": [
+        [{ "node": "Ajouter dans Google Sheets", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Ajouter dans Google Sheets": {
+      "main": [[{ "node": "Score Élevé ? (≥ 7)", "type": "main", "index": 0 }]]
+    },
+    "Score Élevé ? (≥ 7)": {
+      "main": [
+        [{ "node": "Notification Telegram - Prospect Chaud", "type": "main", "index": 0 }],
+        [{ "node": "Récap Fin de Cycle", "type": "main", "index": 0 }]
+      ]
+    },
+    "Notification Telegram - Prospect Chaud": {
+      "main": [[{ "node": "Récap Fin de Cycle", "type": "main", "index": 0 }]]
+    },
+    "Récap Fin de Cycle": {
+      "main": [[{ "node": "Résumé Quotidien - Telegram", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "",
+    "timezone": "Europe/Paris"
+  },
+  "staticData": null,
+  "tags": ["prospection", "b2b", "automatisation"],
+  "pinData": {}
+}
