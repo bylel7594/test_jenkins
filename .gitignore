@@ -1,3 +1,13 @@
-__pycache__/
+# Existant
 *.pyc
-*.pyo
+__pycache__/
+
+# Next.js
+releves-heures/.next/
+releves-heures/node_modules/
+releves-heures/.env.local
+releves-heures/.env
+
+# Env
+.env.local
+.env
