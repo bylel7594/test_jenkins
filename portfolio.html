@@ -1,0 +1,912 @@
+<title>Bylel Zerargui</title>
+
+<style>
+/* =============================================
+   PORTFOLIO — Bylel Zerargui
+   Développeur web & IA, Paris 13e
+
+   Chaque section est commentée pour vous
+   permettre de modifier les textes sans
+   toucher au reste du code.
+   ============================================= */
+
+/* ---- TOKENS : couleurs, tailles, espacements ---- */
+:root {
+  --bg:               #F8FAFB;
+  --bg-alt:           #EEF2F7;
+  --text:             #1C2B3A;
+  --text-muted:       #58697E;
+  --accent:           #1A5C82;
+  --accent-mid:       #3D8BB0;
+  --accent-tint:      #E0EEF7;
+  --border:           #D4DDE8;
+  --surface:          #FFFFFF;
+
+  --warn-text:        #7A4800;
+  --warn-bg:          #FFF3DC;
+  --warn-border:      #F5C97A;
+
+  --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --max-w: 70rem;
+  --section-py: 5rem;
+}
+
+/* Mode sombre — système */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:          #0F1820;
+    --bg-alt:      #162030;
+    --text:        #D8E6F2;
+    --text-muted:  #7A96B2;
+    --accent:      #48A8D8;
+    --accent-mid:  #6BBFEA;
+    --accent-tint: #0D2035;
+    --border:      #24384E;
+    --surface:     #192840;
+    --warn-text:   #FFBE6A;
+    --warn-bg:     #2A1C0A;
+    --warn-border: #5A3B10;
+  }
+}
+
+/* Mode sombre — choix explicite */
+:root[data-theme="dark"] {
+  --bg:          #0F1820;
+  --bg-alt:      #162030;
+  --text:        #D8E6F2;
+  --text-muted:  #7A96B2;
+  --accent:      #48A8D8;
+  --accent-mid:  #6BBFEA;
+  --accent-tint: #0D2035;
+  --border:      #24384E;
+  --surface:     #192840;
+  --warn-text:   #FFBE6A;
+  --warn-bg:     #2A1C0A;
+  --warn-border: #5A3B10;
+}
+
+/* ---- RESET ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.72;
+  color: var(--text);
+  background: var(--bg);
+}
+
+img { max-width: 100%; display: block; }
+a { color: var(--accent); }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- UTILITAIRES ---- */
+.wrap {
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: 0 1.75rem;
+}
+
+.section-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+}
+
+h2 {
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  color: var(--text);
+  text-wrap: balance;
+  margin-bottom: 2.75rem;
+}
+
+h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.skill-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--accent-tint);
+  color: var(--accent);
+  padding: 0.22rem 0.65rem;
+  border-radius: 3px;
+  letter-spacing: 0.01em;
+}
+
+/* =============================================
+   NAVIGATION
+   Changez les libellés si vous renommez
+   les sections (assurez-vous que les href
+   correspondent aux id des sections).
+   ============================================= */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0.9rem 0;
+}
+
+.nav-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-brand {
+  font-weight: 800;
+  font-size: 0.9375rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+}
+
+.nav-links a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--text); }
+
+@media (max-width: 640px) { .nav-links { display: none; } }
+
+/* =============================================
+   BOUTONS
+   ============================================= */
+.btn {
+  display: inline-block;
+  padding: 0.7rem 1.65rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover { opacity: 0.84; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+
+/* =============================================
+   EN-TÊTE / HERO
+   Modifiez : nom, accroche, sous-titre,
+   libellés des boutons.
+   ============================================= */
+.hero {
+  background: var(--bg);
+  padding: 6rem 0 5.5rem;
+}
+
+.hero-name {
+  font-size: clamp(3rem, 10vw, 5.75rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 1.4rem;
+  text-wrap: balance;
+}
+
+.hero-tagline {
+  font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+  color: var(--text-muted);
+  font-weight: 400;
+  max-width: 44ch;
+  line-height: 1.6;
+  margin-bottom: 0.55rem;
+  text-wrap: balance;
+}
+
+.hero-meta {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 2.75rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+}
+
+/* =============================================
+   À PROPOS
+   Modifiez les trois paragraphes et la
+   liste de compétences (balises <span>).
+   ============================================= */
+.about {
+  background: var(--bg-alt);
+  padding: var(--section-py) 0;
+}
+
+.about-text {
+  font-size: 1.05rem;
+  line-height: 1.82;
+  max-width: 58ch;
+  color: var(--text);
+}
+.about-text p + p { margin-top: 1.3em; }
+
+.skills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 2.25rem;
+}
+
+/* =============================================
+   SERVICES
+   Modifiez chaque .service : titre, texte,
+   et tags. Ajoutez ou supprimez des blocs.
+   ============================================= */
+.services {
+  background: var(--bg);
+  padding: var(--section-py) 0;
+}
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 2.75rem;
+}
+
+.service {
+  border-left: 3px solid var(--accent);
+  padding-left: 1.5rem;
+}
+
+.service h3 {
+  margin-bottom: 0.6rem;
+}
+
+.service p {
+  font-size: 0.9375rem;
+  color: var(--text-muted);
+  line-height: 1.68;
+  margin-bottom: 1rem;
+}
+
+.service-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* =============================================
+   PROJETS
+   Pour chaque projet, remplacez :
+   - le texte dans .project-title
+   - le contenu des <dd> (ôtez les <em>
+     et écrivez votre vrai contenu)
+   - les <span class="skill-tag"> dans
+     .project-techno
+   Supprimez les <span class="placeholder-badge">
+   une fois le projet complété.
+   ============================================= */
+.projects {
+  background: var(--bg-alt);
+  padding: var(--section-py) 0;
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.project {
+  border-top: 1px solid var(--border);
+  padding: 2.5rem 0;
+}
+.project:last-child { border-bottom: 1px solid var(--border); }
+
+.project-head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.project-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--text);
+}
+
+.placeholder-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  padding: 0.15rem 0.55rem;
+  border-radius: 3px;
+}
+
+.project-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem 3.5rem;
+}
+@media (max-width: 600px) {
+  .project-body { grid-template-columns: 1fr; gap: 1.1rem; }
+}
+
+.project-field dt {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.project-field dd {
+  font-size: 0.9375rem;
+  color: var(--text);
+  line-height: 1.65;
+}
+
+.project-field dd em {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.project-techno {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* =============================================
+   PARCOURS
+   Ajoutez des .timeline-item pour plus
+   d'entrées. Modifiez date, titre, org, texte.
+   ============================================= */
+.timeline-section {
+  background: var(--bg);
+  padding: var(--section-py) 0;
+}
+
+.timeline {
+  max-width: 46rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 1.5rem;
+  padding: 2rem 0;
+  border-top: 1px solid var(--border);
+  align-items: start;
+}
+.timeline-item:last-child { border-bottom: 1px solid var(--border); }
+
+.tl-date {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  padding-top: 0.15rem;
+  line-height: 1.4;
+}
+
+.tl-content h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 0.2rem;
+}
+
+.tl-org {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--accent-mid);
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.tl-content p {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.65;
+  max-width: 46ch;
+}
+
+/* =============================================
+   CONTACT
+   Modifiez l'email, le téléphone, l'URL
+   LinkedIn, et la localisation.
+   ============================================= */
+.contact {
+  background: var(--bg-alt);
+  padding: var(--section-py) 0;
+}
+
+.contact-intro {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  max-width: 38ch;
+  line-height: 1.72;
+  margin-bottom: 2.75rem;
+  text-wrap: balance;
+}
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-bottom: 2.75rem;
+}
+
+.contact-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1.75rem;
+  flex-wrap: wrap;
+}
+
+.contact-type {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  min-width: 5.5rem;
+  flex-shrink: 0;
+}
+
+.contact-val {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.contact-val:hover { color: var(--accent); }
+.contact-val-plain { cursor: default; }
+
+/* =============================================
+   PIED DE PAGE
+   ============================================= */
+footer {
+  padding: 1.75rem 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.footer-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.footer-copy {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+</style>
+
+<!-- =============================================
+     NAVIGATION PRINCIPALE
+     ============================================= -->
+<nav class="nav" aria-label="Navigation principale">
+  <div class="wrap nav-inner">
+    <!-- Nom affiché dans la barre -->
+    <a href="#accueil" class="nav-brand">Bylel Zerargui</a>
+    <ul class="nav-links">
+      <li><a href="#apropos">À propos</a></li>
+      <li><a href="#services">Services</a></li>
+      <li><a href="#projets">Projets</a></li>
+      <li><a href="#parcours">Parcours</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- =============================================
+     EN-TÊTE / HERO
+     Modifiez : .hero-name, .hero-tagline,
+     .hero-meta, et les textes des boutons.
+     ============================================= -->
+<header id="accueil" class="hero">
+  <div class="wrap">
+    <!-- Votre nom -->
+    <h1 class="hero-name">Bylel Zerargui</h1>
+
+    <!-- Accroche principale — 1 à 2 lignes max -->
+    <p class="hero-tagline">
+      Développeur web &amp; intégration IA pour les PME.<br>
+      Le terrain d'abord, le code ensuite.
+    </p>
+
+    <!-- Localisation et statut -->
+    <p class="hero-meta">Paris 13e &middot; Freelance &middot; Disponible à distance</p>
+
+    <!-- Boutons d'appel à l'action -->
+    <div class="hero-actions">
+      <a href="#contact" class="btn btn-primary">Me contacter</a>
+      <a href="#projets" class="btn btn-ghost">Voir mes projets</a>
+    </div>
+  </div>
+</header>
+
+<!-- =============================================
+     SECTION : À PROPOS
+     Modifiez les 3 paragraphes et les <span>
+     de compétences dans .skills-row.
+     ============================================= -->
+<section id="apropos" class="about" aria-labelledby="h-apropos">
+  <div class="wrap">
+    <span class="section-label">À propos</span>
+    <h2 id="h-apropos">
+      Développeur qui comprend<br>le métier de ses clients
+    </h2>
+
+    <div class="about-text">
+      <!-- Paragraphe 1 : le passé terrain -->
+      <p>
+        J'ai passé vingt ans dans le commerce et la grande distribution — ventes,
+        relation client, gestion de rayon, encadrement d'équipe. Cette expérience
+        m'a appris à écouter, à distinguer le problème réel du symptôme visible,
+        et à proposer des solutions concrètes bien avant de connaître une ligne de code.
+      </p>
+
+      <!-- Paragraphe 2 : la reconversion -->
+      <p>
+        Après ma formation de développeur intégrateur web en 2023-2024 (BTS, IFOCOP),
+        j'ai choisi de ne pas effacer ce passé. Il est ma vraie valeur ajoutée :
+        je parle le langage des PME parce que je l'ai parlé au quotidien, côté terrain.
+      </p>
+
+      <!-- Paragraphe 3 : ce que j'apporte aujourd'hui -->
+      <p>
+        Aujourd'hui je conçois des sites, des applications et des automatisations
+        basées sur l'IA pour des dirigeants qui veulent gagner du temps et mieux
+        servir leurs clients — sans se perdre dans la technique. Ce qui change avec
+        moi : vous n'avez pas besoin de m'expliquer ce qu'est un bon service. Je l'ai exercé.
+      </p>
+    </div>
+
+    <!-- Compétences — ajoutez, modifiez ou supprimez des <span> -->
+    <div class="skills-row" aria-label="Compétences">
+      <span class="skill-tag">HTML / CSS</span>
+      <span class="skill-tag">JavaScript</span>
+      <span class="skill-tag">PHP</span>
+      <span class="skill-tag">MySQL</span>
+      <span class="skill-tag">Agents conversationnels</span>
+      <span class="skill-tag">Automatisation IA</span>
+      <span class="skill-tag">Intégration API</span>
+      <span class="skill-tag">Analyse de besoin</span>
+      <span class="skill-tag">Déploiement &amp; maintenance</span>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION : SERVICES
+     3 blocs. Modifiez titre, texte, et tags
+     de chaque .service indépendamment.
+     ============================================= -->
+<section id="services" class="services" aria-labelledby="h-services">
+  <div class="wrap">
+    <span class="section-label">Ce que je fais</span>
+    <h2 id="h-services">Services</h2>
+
+    <div class="services-grid">
+
+      <!-- Service 1 -->
+      <div class="service">
+        <h3>Sites &amp; applications web</h3>
+        <p>
+          Conception et développement de sites vitrines, boutiques en ligne et
+          applications métier sur mesure — du cahier des charges à la mise en ligne,
+          en passant par l'analyse du besoin. Responsive, rapide, facile à maintenir.
+        </p>
+        <div class="service-tags">
+          <span class="skill-tag">HTML / CSS</span>
+          <span class="skill-tag">JavaScript</span>
+          <span class="skill-tag">PHP</span>
+          <span class="skill-tag">MySQL</span>
+        </div>
+      </div>
+
+      <!-- Service 2 -->
+      <div class="service">
+        <h3>Automatisation &amp; agents IA</h3>
+        <p>
+          Connexion d'API d'IA à vos outils existants, création d'agents
+          conversationnels, automatisation de tâches répétitives. Pour libérer
+          du temps opérationnel sans réorganiser toute votre structure.
+        </p>
+        <div class="service-tags">
+          <span class="skill-tag">API OpenAI / Anthropic</span>
+          <span class="skill-tag">Make / Zapier</span>
+          <span class="skill-tag">Webhook</span>
+        </div>
+      </div>
+
+      <!-- Service 3 -->
+      <div class="service">
+        <h3>Refonte &amp; maintenance</h3>
+        <p>
+          Audit de l'existant, migration, optimisation des performances et suivi
+          régulier. Votre outil numérique reste fonctionnel et à jour dans la durée,
+          sans que vous ayez à vous en préoccuper.
+        </p>
+        <div class="service-tags">
+          <span class="skill-tag">Audit technique</span>
+          <span class="skill-tag">Optimisation</span>
+          <span class="skill-tag">Suivi continu</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION : PROJETS
+     Pour compléter un projet :
+     1. Remplacez le texte dans .project-title
+     2. Dans les <dd>, ôtez les <em> et écrivez
+        votre contenu réel
+     3. Remplacez les [Techno] dans .project-techno
+     4. Supprimez le <span class="placeholder-badge">
+     ============================================= -->
+<section id="projets" class="projects" aria-labelledby="h-projets">
+  <div class="wrap">
+    <span class="section-label">Réalisations</span>
+    <h2 id="h-projets">Projets</h2>
+
+    <div class="project-list">
+
+      <!-- ===== PROJET 1 ===== -->
+      <article class="project">
+        <div class="project-head">
+          <!-- Titre — remplacez ce texte -->
+          <span class="project-title">[À REMPLACER — Titre du projet]</span>
+          <!-- Supprimez ce badge une fois le projet rempli -->
+          <span class="placeholder-badge" aria-label="Contenu à compléter">À compléter</span>
+        </div>
+        <dl class="project-body">
+          <div class="project-field">
+            <dt>Problème client</dt>
+            <!-- Remplacez l'<em> par votre texte réel -->
+            <dd><em>ex. : Aucune visibilité en ligne — les clients appellent pour les horaires et les disponibilités.</em></dd>
+          </div>
+          <div class="project-field">
+            <dt>Solution apportée</dt>
+            <!-- Remplacez l'<em> par votre texte réel -->
+            <dd><em>ex. : Site vitrine responsive avec horaires dynamiques, formulaire de contact et intégration Google My Business.</em></dd>
+          </div>
+        </dl>
+        <!-- Remplacez les [Techno] par vos vraies technologies -->
+        <div class="project-techno">
+          <span class="skill-tag">[Techno 1]</span>
+          <span class="skill-tag">[Techno 2]</span>
+          <span class="skill-tag">[Techno 3]</span>
+        </div>
+      </article>
+
+      <!-- ===== PROJET 2 ===== -->
+      <article class="project">
+        <div class="project-head">
+          <span class="project-title">[À REMPLACER — Titre du projet]</span>
+          <span class="placeholder-badge" aria-label="Contenu à compléter">À compléter</span>
+        </div>
+        <dl class="project-body">
+          <div class="project-field">
+            <dt>Problème client</dt>
+            <dd><em>ex. : Trop de questions répétitives traitées manuellement, mobilisant le temps de l'équipe sur des tâches à faible valeur.</em></dd>
+          </div>
+          <div class="project-field">
+            <dt>Solution apportée</dt>
+            <dd><em>ex. : Agent conversationnel connecté à la FAQ et au catalogue produit, disponible 24h/24, relayant les cas complexes vers un humain.</em></dd>
+          </div>
+        </dl>
+        <div class="project-techno">
+          <span class="skill-tag">[Techno 1]</span>
+          <span class="skill-tag">[Techno 2]</span>
+          <span class="skill-tag">[Techno 3]</span>
+        </div>
+      </article>
+
+      <!-- ===== PROJET 3 ===== -->
+      <article class="project">
+        <div class="project-head">
+          <span class="project-title">[À REMPLACER — Titre du projet]</span>
+          <span class="placeholder-badge" aria-label="Contenu à compléter">À compléter</span>
+        </div>
+        <dl class="project-body">
+          <div class="project-field">
+            <dt>Problème client</dt>
+            <dd><em>ex. : Génération de devis entièrement manuelle — source d'erreurs et chronophage pour une TPE sans service administratif dédié.</em></dd>
+          </div>
+          <div class="project-field">
+            <dt>Solution apportée</dt>
+            <dd><em>ex. : Formulaire en ligne connecté à un tableur avec génération automatique de PDF et envoi par e-mail au client.</em></dd>
+          </div>
+        </dl>
+        <div class="project-techno">
+          <span class="skill-tag">[Techno 1]</span>
+          <span class="skill-tag">[Techno 2]</span>
+          <span class="skill-tag">[Techno 3]</span>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION : PARCOURS
+     Modifiez .tl-date, h3, .tl-org, et p
+     pour chaque entrée. Dupliquez un
+     .timeline-item pour ajouter une ligne.
+     ============================================= -->
+<section id="parcours" class="timeline-section" aria-labelledby="h-parcours">
+  <div class="wrap">
+    <span class="section-label">Parcours</span>
+    <h2 id="h-parcours">Formation &amp; expérience</h2>
+
+    <div class="timeline">
+
+      <!-- Entrée 1 : formation la plus récente -->
+      <div class="timeline-item">
+        <div class="tl-date">2023–2024</div>
+        <div class="tl-content">
+          <h3>Développeur intégrateur web</h3>
+          <span class="tl-org">IFOCOP — Paris</span>
+          <p>
+            Formation professionnelle intensive : HTML, CSS, JavaScript, PHP, MySQL,
+            conception de bases de données, gestion de projet, déploiement. BTS.
+          </p>
+        </div>
+      </div>
+
+      <!-- Entrée 2 : expérience terrain -->
+      <div class="timeline-item">
+        <div class="tl-date">2003–2023</div>
+        <div class="tl-content">
+          <h3>Commerce &amp; grande distribution</h3>
+          <span class="tl-org">Île-de-France</span>
+          <p>
+            Vingt ans de terrain : relation client, vente, gestion de rayon,
+            management d'équipe. Capacité à lire rapidement les besoins réels,
+            à trouver des solutions dans des environnements à forte contrainte
+            opérationnelle, et à travailler avec des profils très variés.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION : CONTACT
+     Modifiez l'e-mail (href et texte),
+     le téléphone, l'URL LinkedIn, et la ville.
+     ============================================= -->
+<section id="contact" class="contact" aria-labelledby="h-contact">
+  <div class="wrap">
+    <span class="section-label">Contact</span>
+    <h2 id="h-contact">Travaillons ensemble</h2>
+
+    <!-- Phrase d'accroche — modifiez librement -->
+    <p class="contact-intro">
+      Un projet web, une automatisation, une question sur la faisabilité —
+      je réponds dans les 24 heures.
+    </p>
+
+    <div class="contact-list">
+      <!-- E-mail : modifiez href ET le texte visible -->
+      <div class="contact-row">
+        <span class="contact-type">E-mail</span>
+        <a href="mailto:bylel7594@gmail.com" class="contact-val">bylel7594@gmail.com</a>
+      </div>
+
+      <!-- Téléphone : modifiez href (format +33...) ET le texte visible -->
+      <div class="contact-row">
+        <span class="contact-type">Téléphone</span>
+        <a href="tel:+33637546494" class="contact-val">06 37 54 64 94</a>
+      </div>
+
+      <!-- LinkedIn : remplacez l'URL et le texte par votre profil réel -->
+      <div class="contact-row">
+        <span class="contact-type">LinkedIn</span>
+        <a href="https://www.linkedin.com/in/bylel-zerargui"
+           class="contact-val"
+           target="_blank"
+           rel="noopener noreferrer">linkedin.com/in/bylel-zerargui</a>
+      </div>
+
+      <!-- Localisation -->
+      <div class="contact-row">
+        <span class="contact-type">Lieu</span>
+        <span class="contact-val contact-val-plain">Paris 13e — disponible à distance</span>
+      </div>
+    </div>
+
+    <!-- Bouton d'action principal -->
+    <a href="mailto:bylel7594@gmail.com" class="btn btn-primary">Envoyer un message</a>
+  </div>
+</section>
+
+<!-- =============================================
+     PIED DE PAGE
+     ============================================= -->
+<footer>
+  <div class="wrap footer-inner">
+    <!-- Année générée automatiquement -->
+    <span class="footer-copy" id="footer-copy">© Bylel Zerargui — Développeur web &amp; IA, Paris</span>
+    <span class="footer-copy">Freelance · Disponible à distance</span>
+  </div>
+</footer>
+
+<script>
+  /* Année dynamique dans le pied de page */
+  var y = new Date().getFullYear();
+  var el = document.getElementById('footer-copy');
+  if (el) el.textContent = '© ' + y + ' Bylel Zerargui — Développeur web & IA, Paris';
+</script>
