@@ -1,5 +1,5 @@
 import pytest
-from calculator import add, subtract, multiply, divide, power, is_prime
+from calculator import add, subtract, multiply, divide, power, is_prime, factorial
 
 
 def test_add():
@@ -35,3 +35,14 @@ def test_is_prime():
     assert is_prime(-5) is False
     assert is_prime(97) is True
     assert is_prime(100) is False
+
+
+def test_factorial():
+    assert factorial(0) == 1
+    assert factorial(1) == 1
+    assert factorial(5) == 120
+    assert factorial(10) == 3628800
+    with pytest.raises(ValueError):
+        factorial(-1)
+    with pytest.raises(ValueError):
+        factorial(1.5)
