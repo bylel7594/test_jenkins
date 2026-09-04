@@ -1,0 +1,322 @@
+{
+  "name": "Tri automatique de CV",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "has:attachment filename:pdf"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "id": "trigger-gmail",
+      "name": "Réception CV (Gmail)",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [-620, 300],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "intitulePoste",
+              "value": "Cariste CACES 3 - entrepôt logistique",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "domaine",
+              "value": "logistique",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "competencesAttendues",
+              "value": "cariste, préparation de commandes, gerbage, scan, inventaire",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "habilitationsObligatoires",
+              "value": "CACES 3",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "diplomeReglementaireObligatoire",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "a6",
+              "name": "diplomeSouhaite",
+              "value": "CAP logistique",
+              "type": "string"
+            },
+            {
+              "id": "a7",
+              "name": "visiteMedicaleRequise",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "a8",
+              "name": "permisRequis",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "a9",
+              "name": "vehiculeRequis",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "a10",
+              "name": "villesAcceptees",
+              "value": "Paris, Ivry-sur-Seine, Vitry-sur-Seine, Créteil, Alfortville, Charenton",
+              "type": "string"
+            },
+            {
+              "id": "a11",
+              "name": "experienceCibleAnnees",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "a12",
+              "name": "seuilRetenu",
+              "value": 70,
+              "type": "number"
+            },
+            {
+              "id": "a13",
+              "name": "seuilARevoir",
+              "value": 45,
+              "type": "number"
+            },
+            {
+              "id": "a14",
+              "name": "emailRecruteur",
+              "value": "recruteur@agence.fr",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "params",
+      "name": "Paramètres mission",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-400, 300]
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "binaryPropertyName": "attachment_0",
+        "options": {
+          "joinPages": true
+        }
+      },
+      "id": "extract-pdf",
+      "name": "Extraire texte du PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1,
+      "position": [-180, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Construit la requête d'extraction envoyée au modèle\nconst p = $('Paramètres mission').first().json;\nconst out = [];\n\nfor (const item of $input.all()) {\n  const cvText = (item.json.text || '').slice(0, 60000);\n\n  const systemPrompt = `Tu es un assistant de recrutement. Tu lis un CV brut et tu renvoies UNIQUEMENT un objet JSON valide, sans texte autour, sans balises markdown.\\n\\nSchéma exact à respecter :\\n{\\n  \\\"nom\\\": string|null,\\n  \\\"email\\\": string|null,\\n  \\\"telephone\\\": string|null,\\n  \\\"ville\\\": string|null,\\n  \\\"code_postal\\\": string|null,\\n  \\\"permis\\\": boolean|null,\\n  \\\"vehicule\\\": boolean|null,\\n  \\\"metier_principal\\\": string|null,\\n  \\\"domaine_activite\\\": string|null,\\n  \\\"competences\\\": string[],\\n  \\\"annees_experience\\\": number|null,\\n  \\\"diplomes\\\": string[],\\n  \\\"habilitations\\\": string[],\\n  \\\"visite_medicale_a_jour\\\": boolean|null,\\n  \\\"dispo_immediate\\\": boolean|null,\\n  \\\"date_disponibilite\\\": string|null,\\n  \\\"nb_missions_similaires\\\": number|null,\\n  \\\"resume\\\": string\\n}\\n\\nRègles :\\n- Si une information n'apparaît pas dans le CV, mets null (ou [] pour les listes). N'invente jamais.\\n- \\\"resume\\\" = 2 phrases maximum décrivant le profil.\\n- \\\"habilitations\\\" = CACES, habilitations électriques, SST, certifications, etc., recopiées telles quelles.`;\n\n  const userPrompt = `Mission visée : ${p.intitulePoste} (domaine : ${p.domaine})\\n\\nCV à analyser :\\n\\\"\\\"\\\"\\n${cvText}\\n\\\"\\\"\\\"`;\n\n  out.push({\n    json: {\n      emailExpediteur: item.json.from || null,\n      nomFichier: item.binary?.attachment_0?.fileName || null,\n      payload: {\n        model: 'claude-sonnet-5',\n        max_tokens: 2000,\n        system: systemPrompt,\n        messages: [{ role: 'user', content: userPrompt }]\n      }\n    }\n  });\n}\n\nreturn out;"
+      },
+      "id": "prep-prompt",
+      "name": "Préparer l'analyse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 3,
+              "batchInterval": 1500
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          }
+        }
+      },
+      "id": "call-llm",
+      "name": "Analyse IA du CV",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [260, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "jsCode": "// Scoring : critères bloquants puis note pondérée sur 100\nconst p = $('Paramètres mission').first().json;\nconst prep = $('Préparer l\\'analyse').all();\nconst out = [];\n\nconst toList = (s) => (s || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean);\nconst norm = (s) => (s || '').toString().toLowerCase();\nconst has = (arr, needle) => (arr || []).some(x => norm(x).includes(needle) || needle.includes(norm(x)));\n\nconst competencesAttendues = toList(p.competencesAttendues);\nconst habilitationsObligatoires = toList(p.habilitationsObligatoires);\nconst villesAcceptees = toList(p.villesAcceptees);\nconst diplomesSouhaites = toList(p.diplomeSouhaite);\nconst diplomesObligatoires = toList(p.diplomeReglementaireObligatoire);\n\n$input.all().forEach((item, i) => {\n  const meta = prep[i]?.json || {};\n  const raw = item.json?.content?.[0]?.text || '';\n\n  let c = null;\n  try {\n    c = JSON.parse(raw.replace(/```json/gi, '').replace(/```/g, '').trim());\n  } catch (e) { /* parsing échoué */ }\n\n  if (!c) {\n    out.push({ json: {\n      date: new Date().toISOString(),\n      fichier: meta.nomFichier, statut: 'À traiter manuellement',\n      score: 0, motifs: 'Extraction IA illisible', reponse_brute: raw.slice(0, 500)\n    }});\n    return;\n  }\n\n  // ---- 1. Critères bloquants ----\n  const motifsRejet = [];\n\n  for (const h of habilitationsObligatoires) {\n    if (!has(c.habilitations, h)) motifsRejet.push(`Habilitation manquante : ${h}`);\n  }\n  for (const d of diplomesObligatoires) {\n    if (!has(c.diplomes, d)) motifsRejet.push(`Diplôme réglementaire manquant : ${d}`);\n  }\n  if (p.visiteMedicaleRequise && c.visite_medicale_a_jour === false) {\n    motifsRejet.push('Visite médicale non à jour');\n  }\n  if (p.permisRequis && c.permis === false) motifsRejet.push('Permis requis absent');\n  if (p.vehiculeRequis && c.vehicule === false) motifsRejet.push('Véhicule requis absent');\n\n  // ---- 2. Points de vigilance (n'écartent pas automatiquement) ----\n  const vigilance = [];\n  if (villesAcceptees.length && c.ville && !villesAcceptees.some(v => norm(c.ville).includes(v))) {\n    vigilance.push(`Localisation à vérifier (${c.ville})`);\n  }\n  if (p.visiteMedicaleRequise && c.visite_medicale_a_jour === null) vigilance.push('Visite médicale non mentionnée');\n  if (p.vehiculeRequis && c.vehicule === null) vigilance.push('Véhicule non mentionné');\n  if (!c.email && !c.telephone) vigilance.push('Aucun contact trouvé sur le CV');\n\n  // ---- 3. Score pondéré ----\n  const detail = {};\n\n  const matched = competencesAttendues.filter(k => has(c.competences, k) || norm(c.metier_principal).includes(k));\n  detail.competences = competencesAttendues.length ? Math.round((matched.length / competencesAttendues.length) * 30) : 30;\n\n  const exp = Number(c.annees_experience) || 0;\n  const cible = Number(p.experienceCibleAnnees) || 1;\n  detail.experience = Math.round(Math.min(exp / cible, 1) * 20);\n\n  const dom = norm(p.domaine);\n  if (dom && norm(c.domaine_activite).includes(dom)) detail.domaine = 20;\n  else if (dom && norm(c.metier_principal).includes(dom)) detail.domaine = 12;\n  else detail.domaine = 0;\n\n  detail.disponibilite = c.dispo_immediate === true ? 10 : (c.date_disponibilite ? 5 : 0);\n\n  detail.diplome = diplomesSouhaites.some(d => has(c.diplomes, d)) ? 10 : 0;\n\n  const nb = Number(c.nb_missions_similaires) || 0;\n  detail.historique = nb >= 3 ? 10 : (nb >= 1 ? 6 : 0);\n\n  const score = Object.values(detail).reduce((a, b) => a + b, 0);\n\n  // ---- 4. Statut final ----\n  let statut;\n  if (motifsRejet.length) statut = 'Écarté (critère bloquant)';\n  else if (score >= p.seuilRetenu) statut = 'Retenu';\n  else if (score >= p.seuilARevoir) statut = 'À revoir';\n  else statut = 'Écarté (score insuffisant)';\n\n  out.push({ json: {\n    date: new Date().toISOString(),\n    fichier: meta.nomFichier,\n    email_expediteur: meta.emailExpediteur,\n    nom: c.nom, email: c.email, telephone: c.telephone, ville: c.ville,\n    metier: c.metier_principal,\n    experience_annees: exp,\n    habilitations: (c.habilitations || []).join(' | '),\n    diplomes: (c.diplomes || []).join(' | '),\n    disponibilite: c.dispo_immediate ? 'Immédiate' : (c.date_disponibilite || 'Non précisée'),\n    score,\n    detail_score: JSON.stringify(detail),\n    statut,\n    motifs: motifsRejet.join(' ; '),\n    vigilance: vigilance.join(' ; '),\n    resume: c.resume,\n    mission: p.intitulePoste\n  }});\n});\n\nreturn out;"
+      },
+      "id": "scoring",
+      "name": "Scoring & décision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "REMPLACER_PAR_ID_GOOGLE_SHEET",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Candidatures",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "sheets",
+      "name": "Journal des candidatures",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [700, 300],
+      "credentials": {}
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond1",
+              "leftValue": "={{ $json.statut }}",
+              "rightValue": "Retenu",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-retenu",
+      "name": "Profil retenu ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [920, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Paramètres mission').first().json.emailRecruteur }}",
+        "subject": "=Nouveau profil retenu — {{ $json.nom || $json.fichier }} ({{ $json.score }}/100)",
+        "emailType": "text",
+        "message": "=Mission : {{ $json.mission }}\n\nCandidat : {{ $json.nom }}\nContact : {{ $json.email }} / {{ $json.telephone }}\nVille : {{ $json.ville }}\nMétier : {{ $json.metier }} — {{ $json.experience_annees }} an(s) d'expérience\nHabilitations : {{ $json.habilitations }}\nDisponibilité : {{ $json.disponibilite }}\n\nScore : {{ $json.score }}/100\nDétail : {{ $json.detail_score }}\nPoints de vigilance : {{ $json.vigilance || 'aucun' }}\n\nRésumé : {{ $json.resume }}\n\nCV source : {{ $json.fichier }}",
+        "options": {}
+      },
+      "id": "notif",
+      "name": "Alerte recruteur",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1140, 200],
+      "credentials": {}
+    },
+    {
+      "parameters": {},
+      "id": "noop",
+      "name": "Classé sans alerte",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1140, 400]
+    }
+  ],
+  "connections": {
+    "Réception CV (Gmail)": {
+      "main": [[{ "node": "Paramètres mission", "type": "main", "index": 0 }]]
+    },
+    "Paramètres mission": {
+      "main": [[{ "node": "Extraire texte du PDF", "type": "main", "index": 0 }]]
+    },
+    "Extraire texte du PDF": {
+      "main": [[{ "node": "Préparer l'analyse", "type": "main", "index": 0 }]]
+    },
+    "Préparer l'analyse": {
+      "main": [[{ "node": "Analyse IA du CV", "type": "main", "index": 0 }]]
+    },
+    "Analyse IA du CV": {
+      "main": [[{ "node": "Scoring & décision", "type": "main", "index": 0 }]]
+    },
+    "Scoring & décision": {
+      "main": [[{ "node": "Journal des candidatures", "type": "main", "index": 0 }]]
+    },
+    "Journal des candidatures": {
+      "main": [[{ "node": "Profil retenu ?", "type": "main", "index": 0 }]]
+    },
+    "Profil retenu ?": {
+      "main": [
+        [{ "node": "Alerte recruteur", "type": "main", "index": 0 }],
+        [{ "node": "Classé sans alerte", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "tri-cv-agence"
+  },
+  "tags": []
+}
